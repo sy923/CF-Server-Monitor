@@ -43,7 +43,7 @@ export async function handleAdminUI(request, env, sys) {
             </div>
           </td>
           <td><span class="group-tag">${s.server_group || '默认分组'}</span></td>
-          <td><span class="price-tag">${s.price || '免费'}</span></td>
+          <td><span class="price-tag">${s.price || ''}</span></td>
           <td><span class="date-text">${s.expire_date || '-'}</span></td>
           <td><span class="spec-text">${s.bandwidth || '-'}</span></td>
           <td><span class="spec-text">${s.traffic_limit || '-'}</span></td>
