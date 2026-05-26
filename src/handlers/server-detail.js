@@ -491,9 +491,7 @@ export async function handleServerDetail(request, env, sys, viewId) {
       <div class="terminal-title">
         ${server.name} — ssh
       </div>
-      <div class="terminal-controls">
-        <span style="color: var(--text-muted);">${new Date().toLocaleString(undefined, { hour12: false })}</span>
-      </div>
+      <div></div>
     </div>
     
     <!-- 导航栏 -->
@@ -505,6 +503,8 @@ export async function handleServerDetail(request, env, sys, viewId) {
         cd ..
       </a>
       <div class="time-selector" id="time-selector">
+        <button class="time-btn" data-hours="0.167">10m</button>
+        <button class="time-btn" data-hours="0.5">30m</button>
         <button class="time-btn" data-hours="1">1h</button>
         <button class="time-btn active" data-hours="3">3h</button>
         <button class="time-btn" data-hours="6">6h</button>
@@ -1213,7 +1213,7 @@ export async function handleServerDetail(request, env, sys, viewId) {
       btn.addEventListener('click', function() {
         document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
-        currentHours = parseInt(this.dataset.hours);
+        currentHours = parseFloat(this.dataset.hours);
         loadAllHistory(currentHours);
       });
     });

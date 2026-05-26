@@ -94,10 +94,15 @@ export async function initDatabase(db) {
     `).run();
 
     // 自动清理超过24小时的数据
+    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
     await db.prepare(`
       DELETE FROM metrics_history 
-      WHERE timestamp < datetime('now', '-24 hours')
-    `).run();
+      WHERE (
+        (typeof(timestamp) = 'integer' AND timestamp < ?)
+        OR 
+        (typeof(timestamp) = 'text' AND timestamp < datetime('now', '-24 hours'))
+      )
+    `).bind(cutoff).run();
 
     // 数据库列迁移（兼容旧版本）
     const { results: columns } = await db.prepare(`PRAGMA table_info(servers)`).all();
@@ -130,6 +135,7 @@ export async function initDatabase(db) {
 // 保存历史指标数据
 export async function saveMetricsHistory(db, serverId, metrics) {
   try {
+    const now = Date.now();
     await db.prepare(`
       INSERT INTO metrics_history (
         server_id, timestamp, cpu, ram, disk, load_avg,
@@ -139,7 +145,7 @@ export async function saveMetricsHistory(db, serverId, metrics) {
         ram_total, ram_used, swap_total, swap_used,
         disk_total, disk_used
       ) VALUES (
-        ?, datetime('now'), ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, ?,
@@ -148,6 +154,7 @@ export async function saveMetricsHistory(db, serverId, metrics) {
       )
     `).bind(
       serverId,
+      now,
       parseFloat(metrics.cpu) || 0,
       parseFloat(metrics.ram) || 0,
       parseFloat(metrics.disk) || 0,
@@ -172,16 +179,27 @@ export async function saveMetricsHistory(db, serverId, metrics) {
     ).run();
 
     // 定期清理超过24小时的旧数据（每100条清理一次）
+    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
     const { count } = await db.prepare(`
       SELECT COUNT(*) as count FROM metrics_history 
-      WHERE server_id = ? AND timestamp < datetime('now', '-24 hours')
-    `).bind(serverId).first();
+      WHERE server_id = ? 
+      AND (
+        (typeof(timestamp) = 'integer' AND timestamp < ?)
+        OR 
+        (typeof(timestamp) = 'text' AND timestamp < datetime('now', '-24 hours'))
+      )
+    `).bind(serverId, cutoff).first();
     
     if (count > 200) {
       await db.prepare(`
         DELETE FROM metrics_history 
-        WHERE server_id = ? AND timestamp < datetime('now', '-24 hours')
-      `).bind(serverId).run();
+        WHERE server_id = ? 
+        AND (
+          (typeof(timestamp) = 'integer' AND timestamp < ?)
+          OR 
+          (typeof(timestamp) = 'text' AND timestamp < datetime('now', '-24 hours'))
+        )
+      `).bind(serverId, cutoff).run();
     }
   } catch (e) {
     console.error('保存历史数据失败:', e);

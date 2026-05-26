@@ -835,9 +835,7 @@ export async function handleDashboard(request, env, sys) {
       <div class="terminal-title">
         dashboard — ${sys.site_title}
       </div>
-      <div style="color: var(--text-muted); font-size: 11px;">
-        ${new Date().toLocaleString(undefined, { hour12: false })}
-      </div>
+      <div></div>
     </div>
     
     <!-- 导航区域 -->

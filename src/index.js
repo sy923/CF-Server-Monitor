@@ -47,19 +47,40 @@ export default {
     if (request.method === 'GET' && url.pathname === '/api/history') {
       const id = url.searchParams.get('id');
       const metric = url.searchParams.get('metric') || 'cpu';
-      const hours = parseInt(url.searchParams.get('hours') || '24');
+      const hours = parseFloat(url.searchParams.get('hours') || '24');
       
       if (!id) return new Response('Missing ID', { status: 400 });
       
+      const now = Date.now();
+      const cutoff = now - (hours * 60 * 60 * 1000);
+      
+      // 查询同时兼容两种格式：数字时间戳和日期时间字符串
       const history = await env.DB.prepare(`
         SELECT timestamp, ${metric} 
         FROM metrics_history 
         WHERE server_id = ? 
-        AND timestamp > datetime('now', '-' || ? || ' hours')
+        AND (
+          (typeof(timestamp) = 'integer' AND timestamp > ?)
+          OR 
+          (typeof(timestamp) = 'text' AND timestamp > datetime('now', '-' || ? || ' hours'))
+        )
         ORDER BY timestamp ASC
-      `).bind(id, hours).all();
+      `).bind(id, cutoff, hours).all();
       
-      return new Response(JSON.stringify(history.results), {
+      // 转换旧格式的日期字符串为时间戳
+      const processed = history.results.map(row => {
+        let ts = row.timestamp;
+        // 如果是字符串格式，转换为时间戳
+        if (typeof ts === 'string') {
+          ts = new Date(ts).getTime();
+        }
+        return {
+          ...row,
+          timestamp: ts
+        };
+      });
+      
+      return new Response(JSON.stringify(processed), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
