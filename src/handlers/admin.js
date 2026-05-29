@@ -77,6 +77,7 @@ export async function handleAdminAPI(request, env, sys) {
       }
       
       await env.DB.prepare('DELETE FROM metrics_history WHERE server_id = ?').bind(id).run();
+      await env.DB.prepare('DELETE FROM metrics_aggregated WHERE server_id = ?').bind(id).run();
       await env.DB.prepare('DELETE FROM servers WHERE id = ?').bind(id).run();
       
       return new Response(JSON.stringify({ success: true, message: '服务器已删除' }), {
@@ -153,6 +154,7 @@ export async function handleAdminAPI(request, env, sys) {
       
       const placeholders = ids.map(() => '?').join(',');
       await env.DB.prepare(`DELETE FROM metrics_history WHERE server_id IN (${placeholders})`).bind(...ids).run();
+      await env.DB.prepare(`DELETE FROM metrics_aggregated WHERE server_id IN (${placeholders})`).bind(...ids).run();
       await env.DB.prepare(`DELETE FROM servers WHERE id IN (${placeholders})`).bind(...ids).run();
       
       return new Response(JSON.stringify({ 
