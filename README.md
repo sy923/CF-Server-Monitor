@@ -6,8 +6,9 @@
 
 - <= 2.6.9 版本,使用方式一部署方式，需要在Workers & Pages页面，点击 **Settings**，修改Build configuration的Deploy command为：`npx wrangler deploy --keep-vars`，否则会导致API\_SECRET丢失。旧key可用通过`cat /etc/systemd/system/cf-probe.service`或者`cat /etc/init.d/cf-probe`获取，再重新设置环境变量API\_SECRET（注意是设置顶部的变量和密钥），最后再同步数据。
 
-**当前版本：V2.7.3**
+**当前版本：V2.7.31**
 
+- V2.7.31 今天下午开始request.cf返回`cf object not available`错误，导致国家/地区代码获取失败，加入头获取cf国家代码作为备选
 - V2.7.3 新增服务器到期提醒功能，调整后台设置页面布局
 - V2.7.2 新增支持多分区磁盘统计功能以及其他优化，增加[图文教程](https://huilang.me/cf-server-monitor-setup/)
 - V2.7.1 新增国内四线路丢包率监控与历史图表，新增GPU字段与图表展示（GPU暂未测试），后台新增 Cloudflare D1/Workers 每日额度查询功能；

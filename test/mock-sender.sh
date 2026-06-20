@@ -2,6 +2,7 @@
 # macOS模拟数据发送脚本
 # 用于测试 CF-Server-Monitor 工作原理
 # bash test/mock-sender.sh 550e8400-e29b-41d4-a716-446655440001 123456 http://localhost:8787/update 10
+# curl -X POST http://localhost:8787/update -H "Content-Type: application/json" -d '{"id":"550e8400-e29b-41d4-a716-446655440001","secret":"123456","metrics":{"cpu":"45.5","ram":"60.2","disk":"35.8"}}'
 
 set -euo pipefail
 

@@ -79,7 +79,7 @@ export async function handleUpdate(request, env, ctx) {
       return createUnauthorizedResponse('Invalid secret');
     }
 
-    let countryCode = request.cf?.country || '';
+    let countryCode = request.cf?.country || request.headers?.get('cf-ipcountry') || '';
     const upperCode = countryCode.toUpperCase();
 
     const serverExists = await checkServerExists(env.DB, id);
