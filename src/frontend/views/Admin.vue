@@ -834,6 +834,26 @@
         </div>
       </div>
 
+      <div v-if="validationError" id="validationErrorModal" class="modal-overlay active">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <div class="modal-title">$ {{ trans.validationError }}</div>
+            <button class="modal-close" @click="validationError = null">✕</button>
+          </div>
+
+          <div class="danger-box mb-4">
+            <div class="flex-center-gap-sm">
+              <span class="danger-icon text-xl">⚠️</span>
+              <span class="danger-label">{{ validationError }}</span>
+            </div>
+          </div>
+
+          <div class="modal-footer flex-justify-end">
+            <button @click="validationError = null" class="btn">{{ trans.close }}</button>
+          </div>
+        </div>
+      </div>
+
       <Footer />
     </div>
     </div>
@@ -968,6 +988,7 @@ const dbLoading = ref(false)
 const dbResult = ref(null)
 const d1UsageLoading = ref(false)
 const d1UsageResult = ref(null)
+const validationError = ref(null)
 
 const showCopyModal = ref(false)
 const copyServerId = ref('')
@@ -1138,24 +1159,44 @@ const saveSettings = async () => {
 
     const jwtSecret = settings.value.jwt_secret
     if (jwtSecret && jwtSecret.length > 0 && jwtSecret.length < 32) {
-      alert(trans.jwtSecretMinLength)
+      validationError.value = trans.value.jwtSecretMinLength
       return
     }
 
     if (jwtSecret && /\s/.test(jwtSecret)) {
-      alert(trans.jwtSecretNoWhitespace)
+      validationError.value = trans.value.jwtSecretNoWhitespace
       return
     }
 
     if (!settings.value.username || settings.value.username.trim().length === 0) {
-      alert(trans.value.usernameRequired)
+      validationError.value = trans.value.usernameRequired
       return
     }
 
     // 只有当用户输入了新密码时才验证密码确认
     if (settings.value.password && settings.value.password.length > 0) {
       if (settings.value.password !== settings.value.confirm_password) {
-        alert(trans.value.passwordMismatch)
+        validationError.value = trans.value.passwordMismatch
+        return
+      }
+    }
+
+    // 如果 turnstile_enabled 开启，验证 turnstile_site_key 和 turnstile_secret_key 都不为空
+    if (settings.value.turnstile_enabled) {
+      if (!settings.value.turnstile_site_key || settings.value.turnstile_site_key.trim().length === 0) {
+        validationError.value = trans.value.turnstileSiteKeyRequired
+        return
+      }
+      if (!settings.value.turnstile_secret_key || settings.value.turnstile_secret_key.trim().length === 0) {
+        validationError.value = trans.value.turnstileSecretKeyRequired
+        return
+      }
+    }
+
+    // 如果 tg_notify 或 expire_reminder 开启，验证 tg_bot_token 不为空
+    if (settings.value.tg_notify === 'true' || settings.value.expire_reminder === 'true') {
+      if (!settings.value.tg_bot_token || settings.value.tg_bot_token.trim().length === 0) {
+        validationError.value = trans.value.tgBotTokenRequired
         return
       }
     }

@@ -283,6 +283,23 @@ export async function handleAdminAPI(request, env, sys) {
     else if (data.action === 'save_settings') {
       const settings = data.settings || {};
 
+      // 如果 turnstile_enabled 开启，验证 turnstile_site_key 和 turnstile_secret_key 都不为空
+      if (settings.turnstile_enabled === 'true' || settings.turnstile_enabled === true) {
+        if (!settings.turnstile_site_key || settings.turnstile_site_key.trim().length === 0) {
+          return createBadRequestResponse('Turnstile Site Key is required when Turnstile is enabled');
+        }
+        if (!settings.turnstile_secret_key || settings.turnstile_secret_key.trim().length === 0) {
+          return createBadRequestResponse('Turnstile Secret Key is required when Turnstile is enabled');
+        }
+      }
+
+      // 如果 tg_notify 或 expire_reminder 开启，验证 tg_bot_token 不为空
+      if (settings.tg_notify === 'true' || settings.expire_reminder === 'true') {
+        if (!settings.tg_bot_token || settings.tg_bot_token.trim().length === 0) {
+          return createBadRequestResponse('Telegram Bot Token is required when notifications are enabled');
+        }
+      }
+
       const APPEARANCE_FIELDS = ['site_title', 'custom_bg', 'custom_head', 'custom_script'];
       const SITE_FIELDS = ['is_public', 'show_price', 'show_expire', 'show_bw', 'show_tf', 'show_long_history', 'tg_notify', 'tg_bot_token', 'tg_chat_id', 'turnstile_enabled', 'turnstile_site_key', 'turnstile_secret_key', 'jwt_secret', 'username', 'password', 'cloudflare_account_id', 'cloudflare_token', 'custom_ct', 'custom_cu', 'custom_cm', 'custom_bd', 'cleanup_skip_count', 'expire_reminder'];
 
@@ -310,8 +327,8 @@ export async function handleAdminAPI(request, env, sys) {
       }
       await saveSiteOptions(env.DB, siteOptions);
       Object.assign(sys, appearanceOptions, siteOptions);
-      return createSuccessResponse({ 
-        success: true, 
+      return createSuccessResponse({
+        success: true,
         message: 'updateSuccess'
       });
     } 

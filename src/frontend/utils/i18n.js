@@ -170,6 +170,8 @@ const translations = reactive({
     verificationFailed: 'Verification failed',
     refreshToRetry: 'Please refresh the page to try again',
     verificationError: 'Verification error',
+    turnstileNotSupported: 'Turnstile Not Supported',
+    turnstileNotSupportedDesc: 'Turnstile is enabled on one of the remote endpoints. Please disable it on the remote site to use this dashboard.',
     dbManagement: 'Database Management',
     upgradeDatabase: 'Upgrade Database',
     rebuildDatabase: 'Rebuild Database',
@@ -253,7 +255,11 @@ const translations = reactive({
     databaseUpgradeFailed: 'Database upgrade failed',
     adminDisabled: 'Admin Panel Disabled',
     adminDisabledDesc: 'Admin panel is disabled when using remote API mode.',
-    backToDashboard: 'Back to Dashboard'
+    backToDashboard: 'Back to Dashboard',
+    validationError: 'Validation Error',
+    turnstileSiteKeyRequired: 'Turnstile Site Key is required when Turnstile is enabled',
+    turnstileSecretKeyRequired: 'Turnstile Secret Key is required when Turnstile is enabled',
+    tgBotTokenRequired: 'Telegram Bot Token is required when notifications are enabled'
   },
   zh: {
     theme: '主题',
@@ -424,6 +430,8 @@ const translations = reactive({
     verificationFailed: '验证失败',
     refreshToRetry: '请刷新页面重试',
     verificationError: '验证错误',
+    turnstileNotSupported: '不支持 Turnstile',
+    turnstileNotSupportedDesc: '检测到其中一个远程端点开启了 Turnstile，请在该站点关闭后继续使用。',
     dbManagement: '数据库管理',
     upgradeDatabase: '升级数据库',
     rebuildDatabase: '重建数据库',
@@ -506,7 +514,11 @@ const translations = reactive({
     databaseUpgradeFailed: '数据库更新失败',
     adminDisabled: '管理面板已禁用',
     adminDisabledDesc: '使用远程 API 模式时，管理面板已禁用。',
-    backToDashboard: '返回仪表盘'
+    backToDashboard: '返回仪表盘',
+    validationError: '验证错误',
+    turnstileSiteKeyRequired: '启用 Turnstile 时必须填写站点密钥',
+    turnstileSecretKeyRequired: '启用 Turnstile 时必须填写密钥',
+    tgBotTokenRequired: '启用通知时必须填写 Telegram Bot Token'
   }
 })
 

@@ -7,7 +7,13 @@ const DEFAULT_ERROR_MESSAGES = {
   500: 'Internal Server Error'
 }
 
-const createHeaders = (includeAuth = true, includeTurnstile = true) => {
+const TURNSTILE_KEY_PREFIX = 'turnstile_verified:'
+
+const getTurnstileVerifiedKey = (baseUrl) => {
+  return TURNSTILE_KEY_PREFIX + (baseUrl || getApiBase())
+}
+
+const createHeaders = (includeAuth = true, includeTurnstile = true, baseUrl = null) => {
   const headers = {
     'Content-Type': 'application/json'
   }
@@ -24,7 +30,8 @@ const createHeaders = (includeAuth = true, includeTurnstile = true) => {
     if (turnstileToken) {
       headers['X-Turnstile-Token'] = turnstileToken
     }
-    const turnstileVerified = localStorage.getItem('turnstile_verified')
+    const key = getTurnstileVerifiedKey(baseUrl)
+    const turnstileVerified = localStorage.getItem(key)
     if (turnstileVerified) {
       headers['X-Turnstile-Verified'] = turnstileVerified
     }
@@ -34,7 +41,7 @@ const createHeaders = (includeAuth = true, includeTurnstile = true) => {
 }
 
 const handleResponse = async (res, options = {}) => {
-  const { autoRedirect = true } = options
+  const { autoRedirect = true, baseUrl = null } = options
   
   if (res.status === 401) {
     localStorage.removeItem('jwt_token')
@@ -47,6 +54,10 @@ const handleResponse = async (res, options = {}) => {
   if (res.status === 403) {
     localStorage.removeItem('turnstile_token')
     localStorage.removeItem('turnstile_verified')
+    try {
+      const key = getTurnstileVerifiedKey(baseUrl)
+      localStorage.removeItem(key)
+    } catch (_) {}
     if (autoRedirect) {
       window.location.reload()
     }
@@ -80,7 +91,8 @@ const handleResponse = async (res, options = {}) => {
   try {
     const data = await res.json()
     if (data && data.turnstile_verified) {
-      localStorage.setItem('turnstile_verified', data.turnstile_verified)
+      const key = getTurnstileVerifiedKey(baseUrl)
+      localStorage.setItem(key, data.turnstile_verified)
       localStorage.removeItem('turnstile_token')
     }
     return { data, status: res.status }
@@ -91,7 +103,7 @@ const handleResponse = async (res, options = {}) => {
 
 const fetchWithBase = async (baseUrl, url, options, method = 'GET', body = null) => {
   const { includeAuth = true, includeTurnstile = true, autoRedirect = true } = options
-  const headers = createHeaders(includeAuth, includeTurnstile)
+  const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
 
   const res = await fetch(`${baseUrl}${url}`, {
     method,
@@ -100,14 +112,14 @@ const fetchWithBase = async (baseUrl, url, options, method = 'GET', body = null)
     credentials: 'include'
   })
 
-  const result = await handleResponse(res, { autoRedirect })
+  const result = await handleResponse(res, { autoRedirect, baseUrl })
   return { ...result, baseUrl }
 }
 
 export const http = {
   async get(url, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
-    const headers = createHeaders(includeAuth, includeTurnstile)
+    const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
     const base = baseUrl || getApiBase()
 
     const res = await fetch(`${base}${url}`, {
@@ -116,12 +128,12 @@ export const http = {
       credentials: 'include'
     })
 
-    return handleResponse(res, { autoRedirect })
+    return handleResponse(res, { autoRedirect, baseUrl: base })
   },
 
   async post(url, body = {}, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
-    const headers = createHeaders(includeAuth, includeTurnstile)
+    const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
     const base = baseUrl || getApiBase()
 
     const res = await fetch(`${base}${url}`, {
@@ -131,12 +143,12 @@ export const http = {
       credentials: 'include'
     })
 
-    return handleResponse(res, { autoRedirect })
+    return handleResponse(res, { autoRedirect, baseUrl: base })
   },
 
   async put(url, body = {}, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
-    const headers = createHeaders(includeAuth, includeTurnstile)
+    const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
     const base = baseUrl || getApiBase()
 
     const res = await fetch(`${base}${url}`, {
@@ -146,12 +158,12 @@ export const http = {
       credentials: 'include'
     })
 
-    return handleResponse(res, { autoRedirect })
+    return handleResponse(res, { autoRedirect, baseUrl: base })
   },
 
   async delete(url, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
-    const headers = createHeaders(includeAuth, includeTurnstile)
+    const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
     const base = baseUrl || getApiBase()
 
     const res = await fetch(`${base}${url}`, {
@@ -160,7 +172,7 @@ export const http = {
       credentials: 'include'
     })
 
-    return handleResponse(res, { autoRedirect })
+    return handleResponse(res, { autoRedirect, baseUrl: base })
   },
 
   async getAll(url, options = {}) {

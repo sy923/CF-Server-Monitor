@@ -74,6 +74,12 @@ export const getApiBases = () => {
   return []
 }
 
+export const getAllApiBases = () => {
+  if (apiBases.length > 0) return apiBases
+  if (window.__APP_API_BASES__) return window.__APP_API_BASES__
+  return []
+}
+
 export const getWsBase = () => {
   if (wsBase) return wsBase
   if (window.__APP_WS_BASE__) return window.__APP_WS_BASE__
@@ -84,4 +90,4 @@ export const hasMultipleApiBases = () => {
   return getApiBases().length > 1
 }
 
-export default { initConfig, getApiBase, getApiBases, getWsBase, hasMultipleApiBases }
+export default { initConfig, getApiBase, getApiBases, getAllApiBases, getWsBase, hasMultipleApiBases }
