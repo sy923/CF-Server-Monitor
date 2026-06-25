@@ -15,24 +15,52 @@ function buildPayloadForBroadcast(id, metrics, extra = {}) {
   return payload;
 }
 
-// 内部辅助：向 Durable Object 发送广播
-async function broadcastToDO(env, serverId, payload) {
-  if (!env || !env.METRICS_BROADCASTER) return false;
+// 批量推送：10秒窗口内合并向 DO 推送一次，减少请求次数
+const BATCH_WINDOW = 10000;
+let batchQueue = new Map();
+let flushingPromise = null;
+
+// 用于过滤不需要实时更新的字段
+const BROADCAST_DELETE_FIELDS = ['id', 'name', 'region', 'arch', 'os', 'cpu_info', 'cpu_cores', 'gpu_info', 'ram_total', 'disk_total', 'expire_date', 'server_group', 'traffic_limit', 'net_rx_monthly', 'net_tx_monthly', 'boot_time', 'timestamp', 'ip_v4', 'ip_v6', 'swap_total'];
+
+async function _flushBatch(env) {
+  flushingPromise = null;
+
+  if (batchQueue.size === 0) return;
+
+  // 原子性地取出当前队列，避免并发写入干扰
+  const queue = batchQueue;
+  batchQueue = new Map();
+
+  const updates = [];
+  for (const [serverId, payload] of queue) {
+    const filtered = Object.assign({}, payload);
+    BROADCAST_DELETE_FIELDS.forEach(field => delete filtered[field]);
+    updates.push({ serverId, payload: filtered });
+  }
+
+  if (updates.length === 0) return;
+
   try {
     const id = env.METRICS_BROADCASTER.idFromName('global');
     const stub = env.METRICS_BROADCASTER.get(id);
-    // 内部调用，不需要鉴权；即使失败也不影响 /update 返回
-    await stub.fetch(`http://internal/push/${encodeURIComponent(serverId)}`, {
+    await stub.fetch('http://internal/batch-push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ updates })
     });
-    return true;
   } catch (e) {
-    // 广播失败不应该让客户端收到错误
-    console.warn('[broadcast] DO push failed:', e.message || e);
-    return false;
+    console.warn('[broadcast] batch push failed:', e.message || e);
   }
+}
+
+function _ensureBatchFlush(env) {
+  if (flushingPromise) return flushingPromise;
+
+  flushingPromise = new Promise(resolve => setTimeout(resolve, BATCH_WINDOW))
+    .then(() => _flushBatch(env));
+
+  return flushingPromise;
 }
 
 export async function handleUpdate(request, env, ctx) {
@@ -55,7 +83,9 @@ export async function handleUpdate(request, env, ctx) {
     await saveMetricsHistory(env.DB, id, metrics, regionCode);
 
     const payload = buildPayloadForBroadcast(id, metrics || {}, { region: regionCode });
-    ctx.waitUntil(broadcastToDO(env, id, payload));
+    // 加入批量队列，由后台定时任务统一推送到 DO
+    batchQueue.set(id, payload);
+    ctx.waitUntil(_ensureBatchFlush(env));
 
     return new Response('OK', { status: 200 });
   } catch (e) {

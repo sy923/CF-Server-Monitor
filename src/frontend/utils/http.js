@@ -1,4 +1,4 @@
-import { getApiBase, getApiBases } from './config'
+import { getApiBases } from './config'
 
 const DEFAULT_ERROR_MESSAGES = {
   401: 'Unauthorized',
@@ -10,7 +10,7 @@ const DEFAULT_ERROR_MESSAGES = {
 const TURNSTILE_KEY_PREFIX = 'turnstile_verified:'
 
 const getTurnstileVerifiedKey = (baseUrl) => {
-  return TURNSTILE_KEY_PREFIX + (baseUrl || getApiBase())
+  return TURNSTILE_KEY_PREFIX + (baseUrl || getApiBases()[0])
 }
 
 const createHeaders = (includeAuth = true, includeTurnstile = true, baseUrl = null) => {
@@ -120,7 +120,7 @@ export const http = {
   async get(url, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
     const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
-    const base = baseUrl || getApiBase()
+    const base = baseUrl || getApiBases()[0]
 
     const res = await fetch(`${base}${url}`, {
       method: 'GET',
@@ -134,7 +134,7 @@ export const http = {
   async post(url, body = {}, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
     const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
-    const base = baseUrl || getApiBase()
+    const base = baseUrl || getApiBases()[0]
 
     const res = await fetch(`${base}${url}`, {
       method: 'POST',
@@ -149,7 +149,7 @@ export const http = {
   async put(url, body = {}, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
     const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
-    const base = baseUrl || getApiBase()
+    const base = baseUrl || getApiBases()[0]
 
     const res = await fetch(`${base}${url}`, {
       method: 'PUT',
@@ -164,7 +164,7 @@ export const http = {
   async delete(url, options = {}) {
     const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
     const headers = createHeaders(includeAuth, includeTurnstile, baseUrl)
-    const base = baseUrl || getApiBase()
+    const base = baseUrl || getApiBases()[0]
 
     const res = await fetch(`${base}${url}`, {
       method: 'DELETE',
@@ -179,7 +179,7 @@ export const http = {
     const bases = getApiBases()
     if (bases.length === 0) {
       const result = await this.get(url, options)
-      return [{ ...result, baseUrl: getApiBase() }]
+      return [{ ...result, baseUrl: getApiBases()[0] }]
     }
 
     const promises = bases.map(baseUrl => 
@@ -194,7 +194,7 @@ export const http = {
     const bases = getApiBases()
     if (bases.length === 0) {
       const result = await this.post(url, body, options)
-      return [{ ...result, baseUrl: getApiBase() }]
+      return [{ ...result, baseUrl: getApiBases()[0] }]
     }
 
     const promises = bases.map(baseUrl => 
@@ -211,7 +211,7 @@ export const http = {
     if (bases.length > 0 && bases[index] !== undefined) {
       baseUrl = bases[index]
     } else {
-      baseUrl = getApiBase()
+      baseUrl = getApiBases()[0]
     }
     return this.get(url, { ...options, baseUrl })
   },
@@ -222,7 +222,7 @@ export const http = {
     if (bases.length > 0 && bases[index] !== undefined) {
       baseUrl = bases[index]
     } else {
-      baseUrl = getApiBase()
+      baseUrl = getApiBases()[0]
     }
     return this.post(url, body, { ...options, baseUrl })
   }

@@ -182,7 +182,7 @@
 
         <div id="tab-settings" class="tab-content" :class="{ active: activeTab === 'settings' }">
           <div class="settings-grid">
-            <div class="settings-section" v-if="currentOrigin === getApiBase()">
+            <div class="settings-section" v-if="currentOrigin === getApiBases()[0]">
               <div class="section-title"><span>▸</span> {{ trans.appearance }}</div>
 
               <div class="form-row">
@@ -879,7 +879,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import TerminalHeader from '../components/TerminalHeader.vue'
 import Footer from '../components/Footer.vue'
-import { adminApi, login, logout as apiLogout, formatBytes, upgradeDatabase, rebuildDatabase, getFlagRegionCode, getApiBase, getApiBases } from '../utils/api'
+import { adminApi, login, logout as apiLogout, formatBytes, upgradeDatabase, rebuildDatabase, getFlagRegionCode, getApiBases } from '../utils/api'
 import { t, currentLang } from '../utils/i18n'
 import { translations } from '../utils/i18n'
 import { http } from '../utils/http'
@@ -904,11 +904,7 @@ const getUsagePercent = (used, limit) => {
 const currentOrigin = computed(() => window.location.origin)
 
 const isRemoteMode = computed(() => {
-  const bases = getApiBases()
-  if (bases.length > 0) return true
-  const apiBase = getApiBase()
-  if (!apiBase) return false
-  return apiBase !== window.location.origin
+  return getApiBases().length > 1
 })
 
 const isLoggedIn = ref(false)
@@ -1307,12 +1303,12 @@ const addServer = async () => {
   }
 
 const getInstallCommand = (serverId) => {
-  const HOST = getApiBase()
+  const HOST = getApiBases()[0]
   return `curl -sL ${HOST}/install.sh | bash -s install -id=${serverId} -secret='${apiSecret.value}' -url=${HOST}/update`
 }
 
 const getUninstallCommand = () => {
-  return `curl -sL ${getApiBase()}/install.sh | bash -s uninstall`
+  return `curl -sL ${getApiBases()[0]}/install.sh | bash -s uninstall`
 }
 
 const copyCmd = (serverId) => {
@@ -1334,7 +1330,7 @@ const copyCmd = (serverId) => {
 }
 
 const getCustomInstallCommand = () => {
-  const HOST = getApiBase()
+  const HOST = getApiBases()[0]
   if (targetOs.value === 'windows') {
     return `${HOST}/cf-server-monitor.pyw`
   }

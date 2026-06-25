@@ -1,8 +1,8 @@
 import { http, isAdminLoggedIn } from './http'
-import { getApiBase, getApiBases, getWsBase } from './config'
+import { getApiBases, getWsBase } from './config'
 import { ref } from 'vue'
 
-export { getApiBase, getApiBases, getWsBase }
+export { getApiBases, getWsBase }
 
 export const VERSION = ref('')
 
@@ -63,6 +63,13 @@ export const createLiveSocket = (subscribe, handlers = {}, apiIndex = 0) => {
 
       if (msg.type === 'update' && typeof onUpdate === 'function') {
         onUpdate({ serverId: msg.serverId, data: msg.data })
+      }
+      if (msg.type === 'batchUpdate' && typeof onUpdate === 'function') {
+        if (Array.isArray(msg.updates)) {
+          for (const u of msg.updates) {
+            onUpdate({ serverId: u.serverId, data: u.data })
+          }
+        }
       }
       if (typeof onMessage === 'function') onMessage(msg)
     })
@@ -140,7 +147,7 @@ export const fetchServers = async () => {
 }
 
 export const fetchServersAll = async () => {
-  const results = await http.getAll('/api/servers', { includeAuth: false, includeTurnstile: false })
+  const results = await http.getAll('/api/servers', { includeAuth: false })
   const mergedData = {
     servers: [],
     stats: { total: 0, online: 0, offline: 0, globalNetRx: 0, globalNetTx: 0, globalSpeedIn: 0, globalSpeedOut: 0 },

@@ -5,7 +5,7 @@ import './styles/main.css'
 import './styles/light.css'
 import { currentLang, translations } from './utils/i18n'
 import { http } from './utils/http'
-import { initConfig, getAllApiBases } from './utils/config'
+import { initConfig, getApiBases, getTitle, getBackgroundImage } from './utils/config'
 import { VERSION } from './utils/api'
 
 const getTranslation = () => {
@@ -123,9 +123,24 @@ async function initApp() {
   // HTTP / WebSocket requests go through the configured origin.
   await initConfig()
 
+  const appTitle = getTitle()
+  const bgImage = getBackgroundImage()
+
+  if (appTitle) {
+    document.title = appTitle
+  }
+
+  if (bgImage) {
+    document.body.style.backgroundImage = `url(${bgImage})`
+    document.body.style.backgroundSize = 'cover'
+    document.body.style.backgroundPosition = 'center'
+    document.body.style.backgroundRepeat = 'no-repeat'
+    document.body.style.backgroundAttachment = 'fixed'
+  }
+
   const config = await fetchConfig()
 
-  const isRemoteMode = getAllApiBases().length > 0
+  const isRemoteMode = getApiBases().length > 1
 
   // 仅全局模式需要在启动时验证 Turnstile；登录模式在 Admin 页面的登录表单中验证
   if (config.turnstile_enabled) {

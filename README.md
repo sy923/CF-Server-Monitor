@@ -2,7 +2,7 @@
 
 一个基于 Cloudflare Workers + D1 + Durable Objects 的多服务器监控探针系统，支持实时监控、历史数据查看、延迟追踪、地图展示等功能。兼容主流Linux系统，Alpine Linux，OpenWrt，Windows系统。**演示地址**：<https://tz.dashdeep.dpdns.org/>
 
-**当前版本：V2.7.4**
+**当前版本：V2.7.5**
 
 <2.7.1 新增了功能，需要**升级安装脚本** 才能生效，否则无法获取丢包率
 ```
@@ -27,6 +27,7 @@ cat /etc/config/cf-probe/config.conf
 <details>
 <summary>更新记录</summary>
 
+- V2.7.5 新增批量推送入口，每10秒批量接收多个服务器更新，减少 DO 请求次数。每5秒批量发送websocket消息，减少Websocket连接次数。
 - V2.7.4 添加允许跨域配置，为后续版本额外功能做铺垫，前端加上跨域配置，修改成HASH模式，修改country为region，数据库自动维护
 - V2.7.3.3 压缩定时任务4个为2个，避免超出免费额度
 - V2.7.3.2 合并通知告警，其他代码逻辑优化
@@ -455,6 +456,10 @@ Windows 系统
 
 管理后台支持自定义 CSS主题
 
+### 主题开发
+
+如需开发自定义主题，请参考 [主题开发文档](theme-develop.md)。
+
 ### 拖拽排序
 
 在管理后台的服务器列表中，可以通过拖拽调整服务器的显示顺序
@@ -580,6 +585,9 @@ CF-Server-Monitor/
 ├── package.json
 ├── vite.config.js              # Vite 配置
 ├── wrangler.toml               # 本地测试 wrangler 配置
+├── API.md                      # 后端 API 文档
+├── theme-develop.md            # 前端主题开发文档
+├── todo.md                     # 待办事项列表
 └── .github/
     └── workflows/
         └── deploy.yml          # GitHub Actions 自动部署

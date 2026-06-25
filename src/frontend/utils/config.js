@@ -1,17 +1,9 @@
-let apiBase = null
 let apiBases = []
 let wsBase = null
+let title = ''
+let backgroundImage = ''
 
 const stripTrailingSlash = (s) => String(s || '').replace(/\/+$/, '')
-
-const toOrigin = (value) => {
-  try {
-    const u = new URL(value)
-    return `${u.protocol}//${u.host}`
-  } catch (_) {
-    return null
-  }
-}
 
 const computeWsBase = (origin) => {
   try {
@@ -23,24 +15,16 @@ const computeWsBase = (origin) => {
   }
 }
 
-const setApiBase = (value) => {
-  if (Array.isArray(value)) {
-    apiBases = value.map(v => stripTrailingSlash(v)).filter(v => v)
-    apiBase = apiBases.length > 0 ? apiBases[0] : stripTrailingSlash(window.location.origin)
-  } else {
-    apiBases = []
-    const cleaned = stripTrailingSlash(value)
-    apiBase = cleaned || stripTrailingSlash(window.location.origin)
-  }
-  wsBase = computeWsBase(apiBase)
-  window.__APP_API_BASE__ = apiBase
-  window.__APP_WS_BASE__ = wsBase
+const setApiBases = (values) => {
+  apiBases = values.map(v => stripTrailingSlash(v)).filter(v => v)
+  const first = apiBases.length > 0 ? apiBases[0] : stripTrailingSlash(window.location.origin)
+  wsBase = computeWsBase(first)
   window.__APP_API_BASES__ = apiBases
-  return apiBase
+  window.__APP_WS_BASE__ = wsBase
 }
 
 export const initConfig = async () => {
-  setApiBase(window.location.origin)
+  setApiBases([window.location.origin])
   try {
     const res = await fetch(`/config.json?t=${Date.now()}`, {
       cache: 'no-cache',
@@ -48,46 +32,44 @@ export const initConfig = async () => {
     })
     if (res && res.ok) {
       const data = await res.json()
-      if (data && data.apiBase) {
-        if (Array.isArray(data.apiBase)) {
-          setApiBase(data.apiBase.filter(u => typeof u === 'string' && u.trim()))
-        } else if (typeof data.apiBase === 'string' && data.apiBase.trim()) {
-          setApiBase(data.apiBase.trim())
-        }
+      if (data && Array.isArray(data.apiBase)) {
+        setApiBases(data.apiBase.filter(u => typeof u === 'string' && u.trim()))
+      }
+      if (data && typeof data.title === 'string') {
+        title = data.title.trim()
+      }
+      if (data && typeof data.backgroundImage === 'string') {
+        backgroundImage = data.backgroundImage.trim()
       }
     }
   } catch (e) {
     // Network or parse failure -> keep the current-origin fallback
   }
-  return apiBase
-}
-
-export const getApiBase = () => {
-  if (apiBase) return apiBase
-  if (window.__APP_API_BASE__) return window.__APP_API_BASE__
-  return stripTrailingSlash(window.location.origin)
+  return apiBases
 }
 
 export const getApiBases = () => {
   if (apiBases.length > 0) return apiBases
   if (window.__APP_API_BASES__) return window.__APP_API_BASES__
-  return []
-}
-
-export const getAllApiBases = () => {
-  if (apiBases.length > 0) return apiBases
-  if (window.__APP_API_BASES__) return window.__APP_API_BASES__
-  return []
+  return [stripTrailingSlash(window.location.origin)]
 }
 
 export const getWsBase = () => {
   if (wsBase) return wsBase
   if (window.__APP_WS_BASE__) return window.__APP_WS_BASE__
-  return computeWsBase(getApiBase())
+  return computeWsBase(getApiBases()[0])
 }
 
 export const hasMultipleApiBases = () => {
   return getApiBases().length > 1
 }
 
-export default { initConfig, getApiBase, getApiBases, getAllApiBases, getWsBase, hasMultipleApiBases }
+export const getTitle = () => {
+  return title
+}
+
+export const getBackgroundImage = () => {
+  return backgroundImage
+}
+
+export default { initConfig, getApiBases, getWsBase, hasMultipleApiBases, getTitle, getBackgroundImage }

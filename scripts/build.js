@@ -9,6 +9,12 @@ const publicDir = path.join(rootDir, 'public');
 const distDir = path.join(rootDir, 'dist');
 
 console.log('Cleaning dist directory...');
+let existingConfigJson = null;
+const distConfigPath = path.join(distDir, 'config.json');
+if (fs.existsSync(distConfigPath)) {
+  existingConfigJson = fs.readFileSync(distConfigPath, 'utf8');
+  console.log('Preserved existing config.json from dist');
+}
 if (fs.existsSync(distDir)) {
   fs.removeSync(distDir);
 }
@@ -16,29 +22,15 @@ if (fs.existsSync(distDir)) {
 console.log('Building frontend...');
 execSync('npx vite build', { cwd: rootDir, stdio: 'inherit' });
 
-console.log('Generating config.json from .env...');
-const envConfig = {};
-if (fs.existsSync(path.join(rootDir, '.env'))) {
-  const envContent = fs.readFileSync(path.join(rootDir, '.env'), 'utf8');
-  const lines = envContent.split('\n');
-  for (const line of lines) {
-    const match = line.match(/^\s*API_BASE_URL\s*=\s*["']?(.+?)["']?\s*$/);
-    if (match) {
-      const value = match[1];
-      const urls = value.split(',').map(u => u.trim()).filter(u => u);
-      envConfig.apiBase = urls.length > 1 ? urls : (urls.length === 1 ? urls[0] : '');
-      break;
-    }
-  }
-}
-const configJsonPath = path.join(distDir, 'config.json');
-fs.writeFileSync(configJsonPath, JSON.stringify({ apiBase: envConfig.apiBase || '' }, null, 2), 'utf8');
-console.log(`Generated config.json with apiBase: ${JSON.stringify(envConfig.apiBase || '(empty)')}`);
-
 console.log('Copying static assets...');
 if (fs.existsSync(publicDir)) {
   fs.copySync(publicDir, distDir, { overwrite: false });
   console.log('Copied all static assets');
+}
+
+if (existingConfigJson && !fs.existsSync(distConfigPath)) {
+  fs.writeFileSync(distConfigPath, existingConfigJson, 'utf8');
+  console.log('Restored existing config.json');
 }
 
 // 替换时间戳

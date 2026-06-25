@@ -385,12 +385,12 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 }
 ```
 
-| 字段             | 说明                                                                    |
-| -------------- | --------------------------------------------------------------------- |
-| `servers`      | 已合并最新指标的服务器列表（按 `sort_order ASC`），未登录用户**自动过滤** **`is_hidden = '1'`** |
-| `stats`        | 聚合统计：在线阈值 300 秒（5 分钟无上报视为离线）                                          |
+| 字段            | 说明                                                                    |
+| ------------- | --------------------------------------------------------------------- |
+| `servers`     | 已合并最新指标的服务器列表（按 `sort_order ASC`），未登录用户**自动过滤** **`is_hidden = '1'`** |
+| `stats`       | 聚合统计：在线阈值 300 秒（5 分钟无上报视为离线）                                          |
 | `regionStats` | 按 ISO 区域码（大写）统计的服务器数                                                  |
-| `sysConfig`    | 当前站点开关，前端据此显示对应 UI                                                    |
+| `sysConfig`   | 当前站点开关，前端据此显示对应 UI                                                    |
 
 ***
 
@@ -422,8 +422,6 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
   "is_hidden": "0",
   "sort_order": 0,
   "cpu": 12.34,
-  "ram": 45.67,
-  "disk": 32.0,
   "load_avg": "0.10 0.20 0.30",
   "net_in_speed": 1024,
   "net_out_speed": 512,
@@ -486,10 +484,10 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 
 ```json
 {
-  "columns": ["timestamp", "cpu", "ram", "disk", "gpu", "gpu_info", "..."],
+  "columns": ["timestamp", "cpu", "gpu", "gpu_info", "..."],
   "rows": [
-    { "timestamp": 1737600000000, "cpu": 12.3, "ram": 45.0, "disk": 32.0, ... },
-    { "timestamp": 1737600600000, "cpu": 13.1, "ram": 45.2, "disk": 32.0, ... }
+    { "timestamp": 1737600000000, "cpu": 12.3, ... },
+    { "timestamp": 1737600600000, "cpu": 13.1, ... }
   ]
 }
 ```
@@ -541,8 +539,8 @@ HTTP 409
 - Path：`/api/ws`
 - Query：
   - `subscribe`（可选，默认 `all`）：
-    - `all` → 订阅所有服务器的最新指标
-    - `<serverId>` → 只订阅指定服务器
+    - `all` → 订阅所有服务器的最新指标（**批量合并推送，每 5 秒一次**）
+    - `<serverId>` → 只订阅指定服务器（**实时推送**）
 
 **Response** `101 Switching Protocols`（WebSocket 握手）
 
@@ -555,17 +553,20 @@ Sec-WebSocket-Key: <base64>
 Sec-WebSocket-Version: 13
 ```
 
+**推送策略**：
+
+| 订阅类型 | 推送方式 | 消息类型 | 说明 |
+| -------- | ----- | ----- | --- |
+| `subscribe=all` | 批量合并，每 5 秒一次 | `batchUpdate` | 减少消息数量，降低前端渲染压力 |
+| `subscribe=<serverId>` | 实时推送 | `update` | 单台服务器详情页，低延迟 |
+
 **服务端 → 客户端消息**：
 
 1. 连接成功（Hello）
    ```json
    { "type": "hello", "ts": 1737638400000, "subscribed": "all" }
    ```
-2. 心跳
-   ```json
-   { "type": "ping", "ts": 1737638400000 }
-   ```
-3. 指标更新（`/update` 写入后立即广播）
+2. 指标更新——实时（`subscribe=<serverId>` 时使用）
    ```json
    {
      "type": "update",
@@ -574,8 +575,25 @@ Sec-WebSocket-Version: 13
      "data": { /* 见 Server 对象(已 merge metrics) */ }
    }
    ```
-   - 当 `subscribe=all` → 接收所有服务器
-   - 当 `subscribe=<serverId>` → 只接收该服务器
+3. 指标更新——批量（`subscribe=all` 时使用，每 5 秒合并一次）
+   ```json
+   {
+     "type": "batchUpdate",
+     "ts": 1737638400000,
+     "updates": [
+       {
+         "serverId": "9b2c...",
+         "ts": 1737638398000,
+         "data": { /* Server 对象 */ }
+       },
+       {
+         "serverId": "a1f3...",
+         "ts": 1737638399000,
+         "data": { /* Server 对象 */ }
+       }
+     ]
+   }
+   ```
 
 **客户端 → 服务端消息**（可选）：
 
@@ -589,14 +607,29 @@ Sec-WebSocket-Version: 13
 - `503 { "error": "WebSocket not enabled", "code": 503 }` —— 未绑定 `METRICS_BROADCASTER` Durable Object
 - `426 Expected WebSocket upgrade request` —— 缺少 `Upgrade: websocket` 头
 
-**前端使用示例**：
+**前端使用示例（subscribe=all，批量推送）**：
 
 ```js
 const ws = new WebSocket('wss://status.example.com/api/ws?subscribe=all');
 ws.onmessage = (ev) => {
   const msg = JSON.parse(ev.data);
+  if (msg.type === 'batchUpdate') {
+    for (const u of msg.updates) {
+      // 更新对应 serverId 的卡片
+      updateServer(u.serverId, u.data);
+    }
+  }
+};
+```
+
+**前端使用示例（subscribe=serverId，实时推送）**：
+
+```js
+const ws = new WebSocket('wss://status.example.com/api/ws?subscribe=server-001');
+ws.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
   if (msg.type === 'update') {
-    // 更新对应 serverId 的卡片
+    updateServer(msg.serverId, msg.data);
   }
 };
 ```
@@ -1055,8 +1088,6 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | `is_hidden`                                   | string `"0"`/`"1"` | 是否在前台隐藏                   |
 | `sort_order`                                  | number             | 排序值（越小越靠前）                |
 | `cpu`                                         | number             | 最新 CPU%（来自最新指标）           |
-| `ram`                                         | number             | 最新 RAM%                   |
-| `disk`                                        | number             | 最新 DISK%                  |
 | `load_avg`                                    | string             | `"x x x"`                 |
 | `net_in_speed`                                | number             | B/s                       |
 | `net_out_speed`                               | number             | B/s                       |
@@ -1078,7 +1109,7 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | `gpu_info`                                    | string             | GPU 型号                    |
 | `arch`                                        | string             | 架构                        |
 | `os`                                          | string             | OS 名称                     |
-| `region`                                      | string             | 区域代码（大写，兼容 ISO 国家码）         |
+| `region`                                      | string             | 区域代码（大写，兼容 ISO 国家码）       |
 | `ip_v4`                                       | string `"0"`/`"1"` | IPv4 可达性                  |
 | `ip_v6`                                       | string `"0"`/`"1"` | IPv6 可达性                  |
 | `boot_time`                                   | string             | 启动时间（毫秒）                  |
@@ -1095,7 +1126,7 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | 字段          | 类型             | 说明                                                                                                                                                                                                                                               |
 | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `timestamp` | number (ms)    | 采样时间                                                                                                                                                                                                                                             |
-| 其余字段        | 视查询 columns 而定 | 当前 `/api/history/all` 固定返回：`cpu, gpu, gpu_info, ram, disk_total, disk_used, processes, net_in_speed, net_out_speed, tcp_conn, udp_conn, ping_ct, ping_cu, ping_cm, ping_bd, loss_ct, loss_cu, loss_cm, loss_bd, swap_total, swap_used, load_avg` |
+| 其余字段        | 视查询 columns 而定 | 当前 `/api/history/all` 固定返回：`cpu, gpu, gpu_info, disk_total, disk_used, processes, net_in_speed, net_out_speed, tcp_conn, udp_conn, ping_ct, ping_cu, ping_cm, ping_bd, loss_ct, loss_cu, loss_cm, loss_bd, swap_total, swap_used, load_avg` |
 
 ### 5.4 Settings 对象
 
@@ -1152,9 +1183,9 @@ Worker 同时注册了 cron 触发器（`scheduled` handler），可在 `wrangle
 | ------------- | --------------- | -------------------------------------------------------------- |
 | `*/1 * * * *` | 每分钟：检测离线节点      | `checkOfflineNodes`（通知）                                        |
 | `0 * * * *`   | 每小时：根据 UTC 日期分支 | 见下表                                                            |
-|               | 每月 1 号 0 点：表轮换  | `monthlyCleanup`（重命名 metrics\_history → metrics\_history\_old） |
-|               | 每月 8 号 0 点：删除旧表 | `dropMetricsHistoryOld`                                        |
-|               | 每天 12 点：服务器到期检测 | `checkExpiringServers`                                         |
+| <br />        | 每月 1 号 0 点：表轮换  | `monthlyCleanup`（重命名 metrics\_history → metrics\_history\_old） |
+| <br />        | 每月 8 号 0 点：删除旧表 | `dropMetricsHistoryOld`                                        |
+| <br />        | 每天 12 点：服务器到期检测 | `checkExpiringServers`                                         |
 
 DEBUG 模式（`env.DEBUG=1`）下额外提供：
 

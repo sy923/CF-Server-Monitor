@@ -323,15 +323,15 @@ const getTrafficUsagePercent = (server) => {
 // 用最新数据增量更新单台服务器信息
 // 无论后端 last_updated 是否变化，都用前端收到推送的时间更新 last_updated，
 // 保证实时时间列（"xx:xx:xx ago"）在每次推送时都刷新。
-const mergeServerUpdate = (data) => {
-  if (!data || !data.id) return false
-  const idx = servers.value.findIndex(s => s.id === data.id)
+const mergeServerUpdate = (serverId, data) => {
+  if (!serverId || !data) return false
+  const idx = servers.value.findIndex(s => s.id === serverId)
   if (idx >= 0) {
     // 已有服务器：合并字段，同时更新 last_updated 为前端收到时间
     servers.value[idx] = { ...servers.value[idx], ...data, last_updated: Date.now() }
   } else {
     // 新服务器：加入列表
-    servers.value.push({ ...data, name: data.id, last_updated: Date.now() })
+    servers.value.push({ ...data, name: serverId, last_updated: Date.now() })
   }
   return true
 }
@@ -433,7 +433,7 @@ let timeUpdateInterval = null
 
 const applyLiveUpdate = ({ serverId, data }) => {
   if (!data || !serverId) return
-  mergeServerUpdate(data)
+  mergeServerUpdate(serverId, data)
   recomputeStats()
   if (currentView.value === 'map') drawMarkers()
 }

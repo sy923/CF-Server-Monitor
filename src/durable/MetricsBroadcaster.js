@@ -24,38 +24,16 @@ export class MetricsBroadcaster {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    // 存储所有活跃 WebSocket：{ id: { ws, scope, createdAt } }
     this.sessions = new Map();
     this.nextSessionId = 0;
-
-    // 心跳定时器
-    this.heartbeatTimer = null;
-    this._ensureHeartbeat();
-
-    // 可选：某些运行时在 state 上暴露 blockConcurrencyWhile
-    // 用于在实例首次启动时串行完成必要初始化，例如从持久化存储回放最新状态
+    this.scopeMap = new Map();
+    this._lock = false;
+    this.batchQueue = new Map();
+    this.batchTimer = null;
+    this.batchInterval = 5000;
     if (this.state && typeof this.state.blockConcurrencyWhile === 'function') {
-      this.state.blockConcurrencyWhile(async () => {
-        // 预留：未来可在这里做持久化的最新状态回放
-      });
+      this.state.blockConcurrencyWhile(async () => {});
     }
-  }
-
-  _ensureHeartbeat() {
-    if (this.heartbeatTimer) return;
-    // Workers 内的 setTimeout 最长 ~30s 可用；heartbeat 25s 比较稳
-    this.heartbeatTimer = setTimeout(() => {
-      this.heartbeatTimer = null;
-      if (this.sessions.size === 0) return;
-      for (const { ws } of this.sessions.values()) {
-        try {
-          if (ws.readyState === 1) {
-            ws.send(JSON.stringify({ type: 'ping', ts: Date.now() }));
-          }
-        } catch (_) { /* ignore */ }
-      }
-      this._ensureHeartbeat();
-    }, 25000);
   }
 
   // 根据 scope 判断会话是否需要接收某台服务器的更新
@@ -65,8 +43,79 @@ export class MetricsBroadcaster {
     return sessionScope === serverId;
   }
 
+  _removeSession(sid, scope) {
+    if (this._lock) return;
+    this._lock = true;
+    try {
+      this.sessions.delete(sid);
+      this.batchQueue.delete(sid);
+      if (scope) {
+        const set = this.scopeMap.get(scope);
+        if (set) {
+          set.delete(sid);
+          if (set.size === 0) {
+            this.scopeMap.delete(scope);
+          }
+        }
+      }
+      if (this.sessions.size === 0) {
+        this.scopeMap.clear();
+        this.batchQueue.clear();
+        if (this.batchTimer) {
+          clearTimeout(this.batchTimer);
+          this.batchTimer = null;
+        }
+      }
+    } finally {
+      this._lock = false;
+    }
+  }
+  
+
+  _flushBatch() {
+    this.batchTimer = null;
+    if (this.batchQueue.size === 0 || this.sessions.size === 0) {
+      this.batchQueue.clear();
+      return;
+    }
+
+    const queue = this.batchQueue;
+    this.batchQueue = new Map();
+
+    for (const [sid, updates] of queue) {
+      const session = this.sessions.get(sid);
+      if (!session) continue;
+
+      const ws = session.ws;
+      if (ws.readyState !== 1) {
+        this._removeSession(sid, session.scope);
+        continue;
+      }
+
+      const message = JSON.stringify({
+        type: 'batchUpdate',
+        ts: Date.now(),
+        updates
+      });
+
+      try {
+        ws.send(message);
+      } catch (e) {
+        try { ws.close(); } catch (_) {}
+        this._removeSession(sid, session.scope);
+      }
+    }
+  }
+
+  _ensureBatchTimer() {
+    if (this.batchTimer) return;
+    this.batchTimer = setTimeout(() => this._flushBatch(), this.batchInterval);
+  }
+
   _broadcast(serverId, payload) {
-    if (this.sessions.size === 0) return;
+    const hasListeners = this.scopeMap.has('all') || this.scopeMap.has(serverId);
+    if (!hasListeners) return;
+
     const message = JSON.stringify({
       type: 'update',
       serverId,
@@ -74,19 +123,52 @@ export class MetricsBroadcaster {
       data: payload
     });
 
-    for (const [sid, session] of this.sessions) {
-      const { ws, scope } = session;
-      if (ws.readyState !== 1) {
-        this.sessions.delete(sid);
-        continue;
+    const allSet = this.scopeMap.get('all');
+    const specificSet = this.scopeMap.get(serverId);
+
+    if (specificSet) {
+      for (const sid of specificSet) {
+        const session = this.sessions.get(sid);
+        if (!session) continue;
+
+        const ws = session.ws;
+        if (ws.readyState !== 1) {
+          this._removeSession(sid, session.scope);
+          continue;
+        }
+
+        try {
+          ws.send(message);
+        } catch (e) {
+          try { ws.close(); } catch (_) {}
+          this._removeSession(sid, session.scope);
+        }
       }
-      if (!this._shouldDeliver(scope, serverId)) continue;
-      try {
-        ws.send(message);
-      } catch (e) {
-        try { ws.close(); } catch (_) {}
-        this.sessions.delete(sid);
+    }
+
+    if (allSet) {
+      for (const sid of allSet) {
+        const session = this.sessions.get(sid);
+        if (!session) continue;
+
+        if (session.ws.readyState !== 1) {
+          this._removeSession(sid, session.scope);
+          continue;
+        }
+
+        if (!this.batchQueue.has(sid)) {
+          this.batchQueue.set(sid, []);
+        }
+        this.batchQueue.get(sid).push({
+          serverId,
+          ts: Date.now(),
+          data: payload
+        });
       }
+    }
+
+    if (this.batchQueue.size > 0 && this.sessions.size > 0) {
+      this._ensureBatchTimer();
     }
   }
 
@@ -105,7 +187,8 @@ export class MetricsBroadcaster {
       const origin = request.headers.get('Origin');
       const allowedOrigins = parseAllowedOrigins(this.env.CORS_ALLOWED_ORIGINS);
       
-      const scope = (url.searchParams.get('subscribe') || 'all').toLowerCase();
+      const raw = url.searchParams.get('subscribe') || 'all';
+      const scope = raw.trim().toLowerCase();
 
       // @ts-ignore - Cloudflare Workers 运行时提供 WebSocketPair
       const pair = new WebSocketPair();
@@ -115,8 +198,13 @@ export class MetricsBroadcaster {
       const sid = ++this.nextSessionId;
       this.sessions.set(sid, { ws: server, scope, createdAt: Date.now() });
 
+      if (!this.scopeMap.has(scope)) {
+        this.scopeMap.set(scope, new Set());
+      }
+      this.scopeMap.get(scope).add(sid);
+
       const cleanup = () => {
-        this.sessions.delete(sid);
+        this._removeSession(sid, scope);
         try { server.close(); } catch (_) {}
       };
 
@@ -175,6 +263,38 @@ export class MetricsBroadcaster {
 
       this._broadcast(serverId, payload);
       return new Response(JSON.stringify({ ok: true, subscribers: this.sessions.size }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 2b) 批量推送入口：批量接收多个服务器更新，减少 DO 请求次数
+    //     body: { updates: [{ serverId, payload }, ...] }
+    if (method === 'POST' && path === '/batch-push') {
+      let body = null;
+      try {
+        body = await request.json();
+      } catch (_) {
+        return new Response(JSON.stringify({ error: 'invalid JSON' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const updates = body && body.updates;
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return new Response(JSON.stringify({ error: 'missing or empty updates array' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      for (const item of updates) {
+        if (item.serverId && item.payload) {
+          this._broadcast(item.serverId, item.payload);
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, count: updates.length, subscribers: this.sessions.size }), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
