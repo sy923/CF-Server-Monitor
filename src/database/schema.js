@@ -30,7 +30,6 @@ export async function initDatabase(db) {
       SELECT name FROM sqlite_master WHERE type='table' AND name='servers'
     `).first();
     if (!ServerTableExists) {
-      saveSiteOptions(db, 'servers_optimized', '1');
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS servers (
           id TEXT PRIMARY KEY,
@@ -51,15 +50,10 @@ export async function initDatabase(db) {
           timestamp INTEGER DEFAULT 0
         )
       `).run();
-    }
-    
-    const servers_optimized  = await getSettingByKey(db, 'servers_optimized', true);
-    if(!servers_optimized){
-      debug('优化servers表');
+      await saveSiteOptions(db, { servers_optimized: 'true' });
+    } else {
+      debug('检查servers表优化状态');
       await ensureServerOptimization(db);
-      saveSiteOptions(db, 'servers_optimized', '1');
-    }else{
-      debug('servers表已优化');
     }
 
     // 判断metrics_history表是否存在
@@ -67,7 +61,6 @@ export async function initDatabase(db) {
       SELECT name FROM sqlite_master WHERE type='table' AND name='metrics_history'
     `).first();
     if (!historyTableExists) {
-      saveSiteOptions(db, 'history_id_optimized', '1');
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS metrics_history (
           id INTEGER PRIMARY KEY,
@@ -110,12 +103,10 @@ export async function initDatabase(db) {
           net_tx_monthly REAL DEFAULT 0
         )
       `).run();
+      await saveSiteOptions(db, { history_id_optimized: 'true' });
     }
     
-    const history_id_optimized  = await getSettingByKey(db, 'history_id_optimized', true);
-    if(!history_id_optimized){
-      await ensureHistoryIndex(db);
-    }
+    await ensureHistoryIndex(db);
 
     debug('✅ 数据库初始化完成');
     dbInitialized = true;

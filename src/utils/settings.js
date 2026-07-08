@@ -187,8 +187,9 @@ export async function saveSiteOptions(db, updates) {
 export async function getSettingByKey(db, key, returnBoolean = false) {
   const settings = await loadSiteSettings(db);
   if(returnBoolean){
-    if(settings[key] === 'true') return true;
-    if(settings[key] === 'false') return false;
+    const value = String(settings[key] ?? '').trim().toLowerCase();
+    if(['true', '1', 'yes', 'on'].includes(value)) return true;
+    if(['false', '0', 'no', 'off', ''].includes(value)) return false;
   }
   return settings[key];
 }
