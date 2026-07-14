@@ -1,6 +1,6 @@
 # [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)
 
-一个基于 Cloudflare Workers + D1 + Durable Objects 的多服务器监控探针系统，支持实时监控、历史数据查看、延迟追踪、地图展示等功能。兼容主流Linux系统，Alpine Linux，OpenWrt，Windows系统。
+一个基于 Cloudflare Workers + D1 + Durable Objects 的多服务器监控探针系统，支持实时监控、历史数据查看、延迟追踪、地图展示等功能。兼容主流Linux系统，Alpine Linux，OpenWrt，macOS（Intel / Apple Silicon），Windows系统。
 
 **演示地址**：<https://demo.huilang.me/>
 
@@ -243,6 +243,14 @@ OpenWrt / LEDE / ImmortalWrt 系统
 curl -sL https://你的项目.你的子域.workers.dev/install-openwrt.sh | sh -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
 ```
 
+### macOS 系统安装
+
+支持 macOS Intel 和 Apple Silicon（M1/M2/M3/M4），使用 `sudo` 执行安装脚本：
+
+```bash
+curl -sL https://你的项目.你的子域.workers.dev/install-mac.sh | sudo bash -s install -id=<SERVER_ID> -secret=<SECRET> -url=<WORKER_URL> [-collect_interval=0] [-interval=60] [-ping=http] [-ct=xxx] [-cu=xxx] [-cm=xxx] [-bd=xxx] [-reset_day=1] [-rx_correction=N] [-tx_correction=N]
+```
+
 ### Windows 系统安装
 
 ```powershell
@@ -358,6 +366,8 @@ curl -sL https://你的项目.你的子域.workers.dev/install.sh | bash -s inst
 curl -sL https://你的项目.你的子域.workers.dev/install-alpine.sh | sh -s install
 # OpenWrt
 curl -sL https://你的项目.你的子域.workers.dev/install-openwrt.sh | sh -s install
+# macOS
+curl -sL https://你的项目.你的子域.workers.dev/install-mac.sh | sudo bash -s install
 ```
 
 > **V2.7.9 说明**：升级到 V2.7.9 后，请重新安装一次探针以启用参数下发能力。之后在后台修改服务器参数会自动下发到探针，无需每次重新安装；受上报间隔和缓存影响，最长约 240 秒才能看到效果。
@@ -381,6 +391,8 @@ curl -sL https://你的项目.你的子域.workers.dev/install.sh | bash -s unin
 curl -sL https://你的项目.你的子域.workers.dev/install-alpine.sh | sh -s uninstall
 # OpenWrt
 curl -sL https://你的项目.你的子域.workers.dev/install-openwrt.sh | sh -s uninstall
+# macOS
+curl -sL https://你的项目.你的子域.workers.dev/install-mac.sh | sudo bash -s uninstall
 ```
 
 Windows 系统（PowerShell 版）
@@ -603,6 +615,7 @@ CF-Server-Monitor/
 │   ├── install.sh              # 一键安装脚本 - systemd 系统 (Ubuntu/Debian/CentOS)
 │   ├── install-alpine.sh       # 一键安装脚本 - OpenRC 系统 (Alpine Linux)
 │   ├── install-openwrt.sh      # 一键安装脚本 - procd 系统 (OpenWrt/LEDE)
+│   ├── install-mac.sh          # 一键安装脚本 - macOS (Intel / Apple Silicon)
 │   └── logo.svg                # Logo
 ├── src/
 │   ├── index.js                # 后端主入口 - 路由分发 + Durable Object 导出
@@ -629,7 +642,10 @@ CF-Server-Monitor/
 │       │   ├── ServerCard.vue
 │       │   └── TerminalHeader.vue
 │       ├── views/              # 页面视图
-│       │   ├── Admin.vue
+│       │   ├── admin/          # 管理后台（拆分为独立模块）
+│       │   │   ├── index.vue   # 管理后台主入口
+│       │   │   ├── components/ # 子组件
+│       │   │   └── composables/# 组合式函数
 │       │   ├── Dashboard.vue    # 首页（接入 WebSocket 实时推送）
 │       │   └── ServerDetail.vue # 详情页（接入 WebSocket 实时推送）
 │       ├── router/

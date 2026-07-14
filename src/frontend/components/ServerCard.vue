@@ -94,7 +94,7 @@
 <script setup>
 import { computed } from 'vue'
 import { formatBytes, getFlagRegionCode, getTrafficUsagePercent, isServerOnline } from '../utils/api'
-import { t, currentLang, useTranslation } from '../utils/i18n'
+import { useTranslation } from '../utils/i18n'
 import { PING } from '../utils/constants'
 import { normalizeTimestamp, formatDateTime } from '../utils/time.js'
 

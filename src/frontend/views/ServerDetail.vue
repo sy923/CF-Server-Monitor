@@ -642,6 +642,9 @@ const updateChartsTheme = (theme) => {
   })
 }
 
+const { onThemeChange } = useTheme()
+onThemeChange(updateChartsTheme)
+
 // ≤1h: gap超过5分钟断线; >1h: 总时长/80，最低5分钟基础阈值
 const getHistoryGapBreakMs = (hours = currentHours.value) => {
   if (hours <= 1) return 5 * 60 * 1000
@@ -1021,9 +1024,6 @@ const init = async () => {
   await initChartsOnMount()
 
   loadAllHistory(currentHours.value)
-
-  const { onThemeChange } = useTheme()
-  onThemeChange(updateChartsTheme)
 
   liveSocket = createLiveSocket(String(serverId), {
     onUpdate: ({ serverId: sid, data }) => {
