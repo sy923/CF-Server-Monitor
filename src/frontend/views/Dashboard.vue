@@ -101,7 +101,7 @@
         <table class="terminal-table">
           <thead>
             <tr>
-              <th>{{ trans.hostname.substring(0, 4) }}</th>
+              <th></th>
               <th>{{ trans.hostname }}</th>
               <th>{{ trans.region }}</th>
               <th>{{ trans.osArch }}</th>
@@ -109,9 +109,9 @@
               <th>{{ trans.ram }}</th>
               <th>{{ trans.disk }}</th>
               <th>{{ trans.use }}</th>
-              <th>{{ trans.dl }}</th>
-              <th>{{ trans.ul }}</th>
-              <th>{{ trans.update }}</th>
+              <th width="95">{{ trans.dl }}</th>
+              <th width="95">{{ trans.ul }}</th>
+              <th width="70">{{ trans.update }}</th>
             </tr>
           </thead>
           <tbody>
